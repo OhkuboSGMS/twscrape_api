@@ -37,7 +37,7 @@ from typing import Optional, List, Dict, Any, Callable, Union
 
 # Define a type for tweet filter functions
 TweetFilterFunc = Callable[[Tweet], bool]
-
+TweetMapFunc = Callable[[Tweet], Any]
 
 def exclude_retweets(tweet: Tweet) -> bool:
     """
@@ -116,12 +116,30 @@ def combine_filters(*filters: TweetFilterFunc) -> TweetFilterFunc:
     
     return combined_filter
 
+def combine_map_functions(*map_funcs: TweetMapFunc) -> TweetMapFunc:
+    """
+    Combine multiple map functions with AND logic.
+
+    Args:
+        *map_funcs: Map functions to combine
+
+    Returns:
+        A map function that applies all map functions in order
+    """
+    def combined_map(tweet: Tweet) -> Any:
+        _tweet = tweet
+        for func in map_funcs:
+            _tweet = func(_tweet)
+        return _tweet
+
+    return combined_map
 
 async def fetch_tweets(
     username: str, 
     limit: int = 10, 
     db_path: str = "./accounts.db",
-    filter_func: Optional[Union[TweetFilterFunc, List[TweetFilterFunc]]] = None
+    filter_func: Optional[Union[TweetFilterFunc, List[TweetFilterFunc]]] = None,
+    map_func: Optional[TweetMapFunc,list[TweetMapFunc]] = None
 ) -> List[Tweet]:
     """
     Fetch tweets from a specific username with customizable filtering.
@@ -133,6 +151,7 @@ async def fetch_tweets(
         filter_func: A function or list of functions to filter tweets
                     Each function should take a Tweet object and return a boolean
                     (True to include the tweet, False to exclude it)
+        map_func: A function or list of functions to map tweets
         
     Returns:
         List of filtered tweets
@@ -155,14 +174,21 @@ async def fetch_tweets(
         elif isinstance(filter_func, list):
             # Combine multiple filters
             filter_func = combine_filters(*filter_func)
-        
+
+        # Set up the map function
+        if map_func is None:
+            # Default map function: no mapping
+            map_func = lambda x: x
+        elif isinstance(map_func, list):
+            # Combine multiple map functions
+            map_func = combine_map_functions(*map_func)
         # Fetch tweets using the user ID with filtering
         tweets = []
         fetch_limit = limit * 3  # Fetch more to account for filtering
         
         async for tweet in api.user_tweets(user.id, limit=fetch_limit):
             if filter_func(tweet):
-                tweets.append(tweet)
+                tweets.append(map_func(tweet))
                 if len(tweets) >= limit:
                     break
         
