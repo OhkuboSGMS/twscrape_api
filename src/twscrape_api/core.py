@@ -139,7 +139,7 @@ async def fetch_tweets(
     limit: int = 10, 
     db_path: str = "./accounts.db",
     filter_func: Optional[Union[TweetFilterFunc, List[TweetFilterFunc]]] = None,
-    map_func: Optional[TweetMapFunc,list[TweetMapFunc]] = None
+    map_func: Optional[TweetMapFunc | list[TweetMapFunc]] = None
 ) -> List[Tweet]:
     """
     Fetch tweets from a specific username with customizable filtering.
